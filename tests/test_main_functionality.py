@@ -1,7 +1,6 @@
 import pytest
 import allure
 from pages.order_feed_page import OrderFeedPage
-from selenium.common.exceptions import TimeoutException
 
 
 @allure.feature("Основная функциональность Stellar Burgers")
@@ -46,6 +45,9 @@ class TestMainFunctionality:
         with allure.step("Проверить наличие названия ингредиента"):
             ingredient_name = main_page.get_ingredient_name_from_modal()
             assert ingredient_name != ""
+        
+        with allure.step("Закрыть модальное окно"):
+            main_page.close_ingredient_modal()
     
     @allure.title("Закрытие модального окна ингредиента")
     @allure.severity(allure.severity_level.NORMAL)

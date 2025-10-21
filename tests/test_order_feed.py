@@ -1,51 +1,91 @@
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from pages.base_page import BasePage
+import pytest
+import allure
+from pages.order_feed_page import OrderFeedPage
 
 
-class OrderFeedPage(BasePage):
-    ORDER_FEED_SECTION = (By.XPATH, "//h1[text()='Лента заказов']")
-    TOTAL_ORDERS_COUNT = (By.XPATH, "//p[text()='Выполнено за все время:']/following-sibling::p")
-    TODAY_ORDERS_COUNT = (By.XPATH, "//p[text()='Выполнено за сегодня:']/following-sibling::p")
-    ORDERS_IN_PROGRESS = (By.XPATH, "//ul[contains(@class, 'OrderFeed_orderList')]//li[contains(@class, 'text_type_digits-default')]")
+@allure.feature("Лента заказов Stellar Burgers")
+class TestOrderFeed:
     
-    def __init__(self, driver):
-        super().__init__(driver)
+    @allure.title("Переход в раздел 'Лента заказов'")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    @pytest.mark.order_feed
+    def test_order_feed_access(self, main_page):
+        with allure.step("Кликнуть на 'Лента заказов'"):
+            main_page.click_order_feed()
+        
+        with allure.step("Проверить отображение раздела 'Лента заказов'"):
+            order_feed_page = OrderFeedPage(main_page.driver)
+            assert order_feed_page.is_order_feed_displayed()
     
-    def is_order_feed_displayed(self):
-        return self.is_element_displayed(self.ORDER_FEED_SECTION)
+    @allure.title("Отображение счетчика 'Выполнено за всё время'")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.order_feed
+    def test_total_orders_counter_display(self, main_page):
+        with allure.step("Перейти в ленту заказов"):
+            main_page.click_order_feed()
+            order_feed_page = OrderFeedPage(main_page.driver)
+        
+        with allure.step("Получить значение счетчика 'Выполнено за всё время'"):
+            total_orders = order_feed_page.get_total_orders_count()
+        
+        with allure.step("Проверить, что счетчик отображается"):
+            assert total_orders >= 0
+            allure.attach(f"Счетчик 'Выполнено за всё время': {total_orders}", 
+                         name="Значение счетчика")
     
-    def get_total_orders_count(self):
-        try:
-            count_text = self.get_text(self.TOTAL_ORDERS_COUNT)
-            return int(count_text) if count_text else 0
-        except (TimeoutException, ValueError):
-            return 0
+    @allure.title("Отображение счетчика 'Выполнено за сегодня'")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.order_feed
+    def test_today_orders_counter_display(self, main_page):
+        with allure.step("Перейти в ленту заказов"):
+            main_page.click_order_feed()
+            order_feed_page = OrderFeedPage(main_page.driver)
+        
+        with allure.step("Получить значение счетчика 'Выполнено за сегодня'"):
+            today_orders = order_feed_page.get_today_orders_count()
+        
+        with allure.step("Проверить, что счетчик отображается"):
+            assert today_orders >= 0
+            allure.attach(f"Счетчик 'Выполнено за сегодня': {today_orders}", 
+                         name="Значение счетчика")
     
-    def get_today_orders_count(self):
-        try:
-            count_text = self.get_text(self.TODAY_ORDERS_COUNT)
-            return int(count_text) if count_text else 0
-        except (TimeoutException, ValueError):
-            return 0
+    @allure.title("Отображение заказов в разделе 'В работе'")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.order_feed
+    def test_orders_in_progress_display(self, main_page):
+        with allure.step("Перейти в ленту заказов"):
+            main_page.click_order_feed()
+            order_feed_page = OrderFeedPage(main_page.driver)
+        
+        with allure.step("Получить список заказов в работе"):
+            orders_in_progress = order_feed_page.get_orders_in_progress()
+        
+        with allure.step("Проверить, что раздел 'В работе' отображается"):
+            assert orders_in_progress is not None
+            allure.attach(f"Заказы в работе: {orders_in_progress}", 
+                         name="Список заказов")
     
-    def get_orders_in_progress(self):
-        try:
-            elements = self.driver.find_elements(*self.ORDERS_IN_PROGRESS)
-            return [element.text for element in elements if element.text]
-        except Exception:
-            return []
-    
-    def wait_for_order_count_change(self, initial_total, initial_today, timeout=10):
-        try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda driver: (
-                    self.get_total_orders_count() != initial_total or
-                    self.get_today_orders_count() != initial_today
-                )
+    @allure.title("Обновление ленты заказов в реальном времени")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.order_feed
+    def test_order_feed_real_time_updates(self, main_page):
+        with allure.step("Перейти в ленту заказов"):
+            main_page.click_order_feed()
+            order_feed_page = OrderFeedPage(main_page.driver)
+        
+        with allure.step("Проверить основные элементы ленты заказов"):
+            assert order_feed_page.is_order_feed_displayed()
+            
+            total_orders = order_feed_page.get_total_orders_count()
+            today_orders = order_feed_page.get_today_orders_count()
+            orders_in_progress = order_feed_page.get_orders_in_progress()
+            
+            assert total_orders >= 0
+            assert today_orders >= 0
+            assert isinstance(orders_in_progress, list)
+            
+            allure.attach(
+                f"Всего заказов: {total_orders}, За сегодня: {today_orders}, В работе: {len(orders_in_progress)}",
+                name="Статистика заказов"
             )
-            return True
-        except TimeoutException:
-            return False

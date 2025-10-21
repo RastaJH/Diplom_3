@@ -1,25 +1,19 @@
 import pytest
+import allure
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from pages.main_page import MainPage
 
 
 def pytest_addoption(parser):
-    parser.addoption("--browser", action="append", default=[], help="browser to run tests (chrome or firefox)")
+    parser.addoption("--browser", action="store", default="chrome", help="browser to run tests (chrome or firefox)")
     parser.addoption("--headless", action="store_true", help="run tests in headless mode")
-
-
-def pytest_generate_tests(metafunc):
-    if "browser" in metafunc.fixturenames:
-        browsers = metafunc.config.getoption("browser")
-        if not browsers:
-            browsers = ["chrome", "firefox"]  # По умолчанию оба браузера
-        metafunc.parametrize("browser", browsers, indirect=True)
 
 
 @pytest.fixture
 def browser(request):
-    browser_name = request.param
+    browser_name = request.config.getoption("--browser")
     headless = request.config.getoption("--headless")
     
     if browser_name == "chrome":
@@ -55,7 +49,31 @@ def browser(request):
 
 @pytest.fixture
 def main_page(browser):
-    from pages.main_page import MainPage
     page = MainPage(browser)
     page.open()
+    
+    allure.attach(
+        browser.get_screenshot_as_png(),
+        name="main_page_loaded",
+        attachment_type=allure.attachment_type.PNG
+    )
+    
     return page
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    
+    if report.when == "call" and report.failed:
+        try:
+            if "browser" in item.funcargs:
+                browser = item.funcargs["browser"]
+                allure.attach(
+                    browser.get_screenshot_as_png(),
+                    name="screenshot_on_failure",
+                    attachment_type=allure.attachment_type.PNG
+                )
+        except Exception as e:
+            print(f"Failed to take screenshot: {e}")

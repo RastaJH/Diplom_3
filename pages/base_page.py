@@ -1,16 +1,17 @@
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import ActionChains
 
 
 class BasePage:
-    def __init__(self, driver):
+    def __init__(self, driver, base_url=None):
         self.driver = driver
-        self.base_url = "https://stellarburgers.education-services.ru"
-        self.wait = WebDriverWait(driver, 10)
+        self.base_url = base_url
     
     def open(self, path=""):
+        if not self.base_url:
+            raise ValueError("Base URL is not set")
         self.driver.get(self.base_url + path)
     
     def find_element(self, locator, timeout=10):
@@ -67,3 +68,15 @@ class BasePage:
         return WebDriverWait(self.driver, timeout).until(
             lambda driver: driver.execute_script("return document.readyState") == "complete"
         )
+    
+    def wait_for_condition(self, condition, timeout=10, message=""):
+        return WebDriverWait(self.driver, timeout).until(condition, message=message)
+    
+    def drag_and_drop(self, source_locator, target_locator, timeout=10):
+        source = self.find_element(source_locator, timeout)
+        target = self.scroll_to_element(target_locator, timeout)
+        
+        self.wait_for_element_visible(target_locator, timeout)
+        
+        action = ActionChains(self.driver)
+        action.drag_and_drop(source, target).perform()
